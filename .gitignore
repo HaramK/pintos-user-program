@@ -1,0 +1,15 @@
+cscope.files
+cscope.out
+TAGS
+tags
+cmake*/
+bin/
+.idea/
+.idea/vcs.xml
+/cmake-build-debug/
+/cmake-build-release/
+/cmake/
+.DS_Store
+cmake-build-debug/*
+cmake-build-release/*
+.idea/*

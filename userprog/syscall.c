@@ -16,5 +16,16 @@ static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
   printf ("system call!\n");
+  int * p =f->esp;
+  int type=*p;
+
+  switch (type){
+    case SYS_WRITE:
+      printf("fd : %d | Length : %d\n",*(p+5),*(p+7));
+      printf("buffer: %s\n",*(p+6));
+      break;
+    default:
+      printf("no match");
+  }
   thread_exit ();
 }

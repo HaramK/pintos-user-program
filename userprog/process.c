@@ -83,12 +83,12 @@ start_process (void *file_name_)
   palloc_free_page (fn_copy);
 
   //读参数
-  char * argv[argc];
+  int argv[argc];
   int i=0;
   for (token = strtok_r (fn_copy2, " ", &save_ptr);token != NULL; token = strtok_r (NULL, " ", &save_ptr)){
     if_.esp-=(strlen(token)+1);
     memcpy(if_.esp,token,strlen(token)+1);
-    argv[i++]=if_.esp;
+    argv[i++]=(int)if_.esp;
   }
   palloc_free_page (fn_copy2);
 
@@ -100,7 +100,7 @@ start_process (void *file_name_)
 
   for(int i=argc-1;i>=0;i--){
     if_.esp-=4;
-    memcpy(if_.esp,argv[i],sizeof(int));
+    memcpy(if_.esp,&argv[i],sizeof(int));
   }
   int argv_start=(int)if_.esp;
   if_.esp-=4;

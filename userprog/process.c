@@ -30,21 +30,35 @@ tid_t
 process_execute (const char *file_name)
 {
   char *fn_copy;
+  char *fn_copy2;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
+  fn_copy2 = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
+  if (fn_copy2 == NULL)
+    return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy (fn_copy2, file_name, PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
   char * save_ptr;
-  file_name = strtok_r(file_name," ",&save_ptr);
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  fn_copy2 = strtok_r(fn_copy2," ",&save_ptr);
+  tid = thread_create (fn_copy2, PRI_DEFAULT, start_process, fn_copy);
+  palloc_free_page (fn_copy2);
+
+  if (tid == TID_ERROR){
     palloc_free_page (fn_copy);
+    return tid;
+  }
+
+  //父进程阻塞，等待子进程load完
+  sema_down(&thread_current()->exec_sema);
+  if (!thread_current()->exec_success) return TID_ERROR;
+
   return tid;
 }
 
@@ -74,6 +88,7 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
 
+
   /*成功load之后，把参数放入栈中*/
   //读参数个数
   int argc=0;
@@ -81,6 +96,7 @@ start_process (void *file_name_)
     argc++;
   }
   palloc_free_page (fn_copy);
+
 
   //读参数
   int argv[argc];
@@ -90,7 +106,9 @@ start_process (void *file_name_)
     memcpy(if_.esp,token,strlen(token)+1);
     argv[i++]=(int)if_.esp;
   }
+  printf("---------------------");
   palloc_free_page (fn_copy2);
+
 
   //对齐
   while((int)if_.esp%4!=0) if_.esp--;
@@ -112,13 +130,23 @@ start_process (void *file_name_)
   if_.esp-=4;
   memcpy(if_.esp,&zero,sizeof(int));
 
+
 //  hex_dump(if_.esp,if_.esp,PHYS_BASE-(if_.esp),true);
 
 
   /* If load failed, quit. */
+  //load之后增加信号量，并且声明成功与否
   palloc_free_page (file_name);
-  if (!success)
+  if (!success){
+    thread_current()->parent->exec_success=false;
+    sema_up(&thread_current()->parent->exec_sema);
     thread_exit ();
+  } else{
+    thread_current()->parent->exec_success=true;
+    sema_up(&thread_current()->parent->exec_sema);
+  }
+
+
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

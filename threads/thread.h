@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <threads/synch.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -100,6 +101,14 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+
+    struct semaphore exec_sema; //用于exec同步，只有当子进程load成功后，父进程才能从exec返回
+    bool exec_success; //用于exec,判断子进程是否成功load its executable
+    struct thread* parent; //父进程
+    struct list childs; //子进程
+
+
   };
 
 /* If false (default), use round-robin scheduler.

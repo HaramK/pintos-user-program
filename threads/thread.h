@@ -107,6 +107,7 @@ struct thread
     bool exec_success; //用于exec,判断子进程是否成功load its executable
     struct thread* parent; //父进程
     struct list childs; //子进程
+    struct list_elem child_elem;
 
 
   };

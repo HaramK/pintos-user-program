@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <devices/timer.h>
+#include <threads/malloc.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -71,11 +72,10 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
-  char *fn_copy,*fn_copy2;
-  fn_copy = palloc_get_page (0);
-  fn_copy2 = palloc_get_page (0);
-  strlcpy (fn_copy, file_name, PGSIZE);
-  strlcpy (fn_copy2, file_name, PGSIZE);
+  char *fn_copy=malloc(strlen(file_name)+1);
+  char *fn_copy2=malloc(strlen(file_name)+1);
+  strlcpy(fn_copy,file_name,strlen(file_name)+1);
+  strlcpy(fn_copy2,file_name,strlen(file_name)+1);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -87,52 +87,45 @@ start_process (void *file_name_)
   file_name = strtok_r (file_name, " ", &save_ptr);
   success = load (file_name, &if_.eip, &if_.esp);
 
+  if(success){
+    /*成功load之后，把参数放入栈中*/
+    //读参数个数
+    int argc=0;
+    for ( token = strtok_r (fn_copy, " ", &save_ptr);token != NULL; token = strtok_r (NULL, " ", &save_ptr)){
+      argc++;
+    }
+    free(fn_copy);
 
+    //读参数
+    int argv[argc];
+    int i=0;
+    for (token = strtok_r (fn_copy2, " ", &save_ptr);token != NULL; token = strtok_r (NULL, " ", &save_ptr)){
+      if_.esp-=(strlen(token)+1);
+      memcpy(if_.esp,token,strlen(token)+1);
+      argv[i++]=(int)if_.esp;
+    }
+    free(fn_copy2);
 
-  /*成功load之后，把参数放入栈中*/
-  //读参数个数
-  int argc=0;
-  for ( token = strtok_r (fn_copy, " ", &save_ptr);token != NULL; token = strtok_r (NULL, " ", &save_ptr)){
-    argc++;
-  }
-  palloc_free_page (fn_copy);
+    //对齐
+    while((int)if_.esp%4!=0) if_.esp--;
 
-
-  //读参数
-  int argv[argc];
-  int i=0;
-  for (token = strtok_r (fn_copy2, " ", &save_ptr);token != NULL; token = strtok_r (NULL, " ", &save_ptr)){
-    if_.esp-=(strlen(token)+1);
-    memcpy(if_.esp,token,strlen(token)+1);
-    argv[i++]=(int)if_.esp;
-  }
-  printf("---------------------");
-  palloc_free_page (fn_copy2);
-
-
-  //对齐
-  while((int)if_.esp%4!=0) if_.esp--;
-
-  //参数地址入栈
-  int zero=0;
-  if_.esp-=4;
-  memcpy(if_.esp,&zero, sizeof(int));
-
-  for(int i=argc-1;i>=0;i--){
+    //参数地址入栈
+    int zero=0;
     if_.esp-=4;
-    memcpy(if_.esp,&argv[i],sizeof(int));
+    memcpy(if_.esp,&zero, sizeof(int));
+
+    for(int i=argc-1;i>=0;i--){
+      if_.esp-=4;
+      memcpy(if_.esp,&argv[i],sizeof(int));
+    }
+    int argv_start=(int)if_.esp;
+    if_.esp-=4;
+    memcpy(if_.esp,&argv_start,sizeof(int));
+    if_.esp-=4;
+    memcpy(if_.esp,&argc,sizeof(int));
+    if_.esp-=4;
+    memcpy(if_.esp,&zero,sizeof(int));
   }
-  int argv_start=(int)if_.esp;
-  if_.esp-=4;
-  memcpy(if_.esp,&argv_start,sizeof(int));
-  if_.esp-=4;
-  memcpy(if_.esp,&argc,sizeof(int));
-  if_.esp-=4;
-  memcpy(if_.esp,&zero,sizeof(int));
-
-
-//  hex_dump(if_.esp,if_.esp,PHYS_BASE-(if_.esp),true);
-
 
   /* If load failed, quit. */
   //load之后增加信号量，并且声明成功与否
@@ -145,7 +138,6 @@ start_process (void *file_name_)
     thread_current()->parent->exec_success=true;
     sema_up(&thread_current()->parent->exec_sema);
   }
-
 
 
   /* Start the user process by simulating a return from an

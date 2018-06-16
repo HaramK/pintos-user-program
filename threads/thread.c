@@ -470,11 +470,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  if(!strcmp(name,"main")) t->parent=NULL;
-  else t->parent = thread_current();
+
   list_init(&t->childs);
   sema_init(&t->exec_sema,0);
   t->exec_success=true;
+  if(!strcmp(name,"main")) t->parent=NULL;
+  else {
+    t->parent = thread_current();
+    list_push_back (&thread_current()->childs, &t->child_elem);
+  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

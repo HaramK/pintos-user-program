@@ -190,6 +190,14 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+  //初始化孩子元素
+  t->pointer_as_child_thread = palloc_get_page (PAL_ZERO);
+  t->pointer_as_child_thread->tid=tid;
+  t->pointer_as_child_thread->exit_status=NULL;
+  t->pointer_as_child_thread->bewaited = false;
+  sema_init(&t->pointer_as_child_thread->sema,0);
+
+
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -299,6 +307,12 @@ thread_exit (void)
   intr_disable ();
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
+
+  //信号量加上
+  thread_current()->pointer_as_child_thread->exit_status=thread_current()->exit_status;
+  sema_up(&thread_current()->pointer_as_child_thread->sema);
+
+  printf("%s: exit(%d)\n",thread_name(),thread_current()->exit_status);
   schedule ();
   NOT_REACHED ();
 }
@@ -472,12 +486,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   list_init(&t->childs);
+  list_init(&t->files);
   sema_init(&t->exec_sema,0);
   t->exec_success=true;
+  t->exit_status =NULL;
+  list_init(&t->files);
   if(!strcmp(name,"main")) t->parent=NULL;
   else {
     t->parent = thread_current();
-    list_push_back (&thread_current()->childs, &t->child_elem);
+    list_push_back (&thread_current()->childs, &t->pointer_as_child_thread->child_thread_elem);
   }
 
   old_level = intr_disable ();

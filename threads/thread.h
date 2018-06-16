@@ -25,6 +25,16 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+//作为孩子元素的线程信息
+// 当原来线程被摧毁之后，仍然存在。只有当父进程读到他结束的状态之后，才释放。
+struct as_child_thread{
+    tid_t tid;
+    int exit_status;
+    struct list_elem child_thread_elem;
+    bool bewaited;
+    struct semaphore sema;
+};
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -107,10 +117,13 @@ struct thread
     bool exec_success; //用于exec,判断子进程是否成功load its executable
     struct thread* parent; //父进程
     struct list childs; //子进程
-    struct list_elem child_elem;
-
+    int exit_status; //退出状态
+    struct list files;//打开的文件
+    struct as_child_thread * pointer_as_child_thread; //指向“作为孩子的struct”的指针
 
   };
+
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

@@ -162,8 +162,30 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED)
 {
-  timer_msleep(100000);
-  return -1;
+  struct list_elem *e;
+  struct list *l = &thread_current()->childs;
+  struct as_child_thread *act;
+  for (e = list_begin (l); e != list_end (l); e = list_next (e))
+  {
+    act = list_entry (e, struct as_child_thread, child_thread_elem);
+    if(act->tid==child_tid){
+      if (!act->bewaited){
+        act->bewaited = true;
+        sema_down(&act->sema);
+      } else return -1;
+    }
+  }
+  if (e == list_end(l)) return -1;
+
+  //等到孩子退出后, 读取退出状态， 移走孩子元素并释放
+  int status = act->exit_status;
+  list_remove(e);
+  palloc_free_page(act);
+
+  return status;
+
+//  timer_msleep(100000);
+//  return -1;
 }
 
 /* Free the current process's resources. */

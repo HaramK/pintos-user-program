@@ -20,7 +20,7 @@ syscall_init (void)
 }
 
 void unexpected_exit(){
-  printf("%s: exit(-1)\n",thread_name());
+  thread_current()->exit_status = -1;
   thread_exit ();
 }
 
@@ -51,7 +51,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_EXIT:
       verity_address((void *)p);
-      printf("%s: exit(%d)\n",thread_name(),*(p));
+      thread_current()->exit_status = *p;
       thread_exit ();
 
     case SYS_EXEC:
@@ -113,8 +113,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     default:
       printf("System call not supported!");
+      unexpected_exit();
       // TODO: terminal process, release resources
       break;
   }
-//  thread_exit ();
 }

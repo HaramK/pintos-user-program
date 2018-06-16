@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <devices/timer.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -39,10 +40,8 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
-  printf("filename: %s\n",file_name);
   char * save_ptr;
   file_name = strtok_r(file_name," ",&save_ptr);
-  printf("filename: %s\n",file_name);
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
@@ -74,6 +73,7 @@ start_process (void *file_name_)
   file_name = strtok_r (file_name, " ", &save_ptr);
   success = load (file_name, &if_.eip, &if_.esp);
 
+
   /*成功load之后，把参数放入栈中*/
   //读参数个数
   int argc=0;
@@ -92,8 +92,10 @@ start_process (void *file_name_)
   }
   palloc_free_page (fn_copy2);
 
-  //对齐后，参数地址入栈
+  //对齐
   while((int)if_.esp%4!=0) if_.esp--;
+
+  //参数地址入栈
   int zero=0;
   if_.esp-=4;
   memcpy(if_.esp,&zero, sizeof(int));
@@ -110,7 +112,7 @@ start_process (void *file_name_)
   if_.esp-=4;
   memcpy(if_.esp,&zero,sizeof(int));
 
-  hex_dump(if_.esp,if_.esp,PHYS_BASE-(if_.esp),true);
+//  hex_dump(if_.esp,if_.esp,PHYS_BASE-(if_.esp),true);
 
 
   /* If load failed, quit. */
@@ -140,7 +142,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED)
 {
-  while (1);
+  timer_msleep(100000);
   return -1;
 }
 

@@ -8,6 +8,7 @@
 #include <filesys/file.h>
 #include <devices/input.h>
 #include <threads/palloc.h>
+#include <threads/malloc.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "process.h"
@@ -107,7 +108,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       struct file * thefile =filesys_open((const char *)*p);
       release_file_lock();
       if(thefile){
-        struct opened_file *of = palloc_get_page(PAL_ZERO);
+        struct opened_file *of = malloc(sizeof(struct opened_file));
         of->fd = t->next_fd++;
         of->file = thefile;
         list_push_back(&t->files, &of->file_elem);
@@ -199,14 +200,12 @@ syscall_handler (struct intr_frame *f UNUSED)
         file_close(openf->file);
         release_file_lock();
         list_remove(&openf->file_elem);
-        palloc_free_page(openf);
+        free(openf);
       }
       break;
 
     default:
-      printf("System call not supported!");
       unexpected_exit();
-      // TODO: terminal process, release resources
       break;
   }
 }

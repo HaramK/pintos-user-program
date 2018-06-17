@@ -30,29 +30,25 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name)
 {
-  char *fn_copy;
-  char *fn_copy2;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  fn_copy2 = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  if (fn_copy2 == NULL)
-    return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
-  strlcpy (fn_copy2, file_name, PGSIZE);
+
+  char *fn_copy=malloc(strlen(file_name)+1);
+  char *fn_copy2=malloc(strlen(file_name)+1);
+  strlcpy(fn_copy,file_name,strlen(file_name)+1);
+  strlcpy(fn_copy2,file_name,strlen(file_name)+1);
+
 
   /* Create a new thread to execute FILE_NAME. */
   char * save_ptr;
   fn_copy2 = strtok_r(fn_copy2," ",&save_ptr);
   tid = thread_create (fn_copy2, PRI_DEFAULT, start_process, fn_copy);
-  palloc_free_page (fn_copy2);
+  free (fn_copy2);
 
   if (tid == TID_ERROR){
-    palloc_free_page (fn_copy);
+    free (fn_copy);
     return tid;
   }
 
@@ -86,10 +82,9 @@ start_process (void *file_name_)
   char *token, *save_ptr;
   file_name = strtok_r (file_name, " ", &save_ptr);
   success = load (file_name, &if_.eip, &if_.esp);
-  palloc_free_page (file_name);
+  free (file_name);
 
   if(success){
-
     /*成功load之后，把参数放入栈中*/
     //读参数个数
     int argc=0;
@@ -185,7 +180,7 @@ process_wait (tid_t child_tid UNUSED)
   //等到孩子退出后, 读取退出状态， 移走孩子元素并释放
   int status = act->exit_status;
   list_remove(e);
-  palloc_free_page(act);
+  free(act);
 
   return status;
 }
@@ -418,6 +413,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
+
+  //此处不关闭，当线程结束后再关闭
 //  file_close (file);
   release_file_lock();
   return success;

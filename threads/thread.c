@@ -9,9 +9,12 @@
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -196,7 +199,7 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
 
   //初始化孩子元素
-  t->pointer_as_child_thread = palloc_get_page (PAL_ZERO);
+  t->pointer_as_child_thread = malloc(sizeof(struct as_child_thread));
   t->pointer_as_child_thread->tid=tid;
   t->pointer_as_child_thread->exit_status=UINT32_MAX;
   t->pointer_as_child_thread->bewaited = false;
@@ -316,7 +319,7 @@ thread_exit (void)
   thread_current()->pointer_as_child_thread->exit_status=thread_current()->exit_status;
   sema_up(&thread_current()->pointer_as_child_thread->sema);
 
-  //关闭可执行文件，间接允许了对该可执行文件进行修改
+  //关闭可执行文件，间接允许了对该可执行文件进行修改（file_allow_write）
   file_close(thread_current()->self_file);
 
  // 关闭所有打开的文件
@@ -590,7 +593,13 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      // Todo: 释放资源：孩子list、files的list
+
+      //  释放资源：孩子list、files的list
+      while(!list_empty(&prev->childs)){
+        struct as_child_thread *act = list_entry (list_pop_front(&prev->childs), struct as_child_thread, child_thread_elem);
+        free(act);
+      }
+
       palloc_free_page (prev);
     }
 }

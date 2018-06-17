@@ -62,6 +62,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_WAIT:
       verity_address((void *)p);
+      f->eax = process_wait(*p);
       break;
 
     case SYS_CREATE:
@@ -93,7 +94,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       verity_address((void*)*(p+1));
       int fd = *p;
       if (fd<=0) unexpected_exit();
-      if (fd==1) putbuf((char*)*(p+1),*(p+2));
+      if (fd==1) {
+        putbuf((char*)*(p+1),*(p+2));
+        f->eax = *(p+2);
+      }
       else{
           // Todo: write file
       }

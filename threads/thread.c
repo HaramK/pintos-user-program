@@ -193,9 +193,10 @@ thread_create (const char *name, int priority,
   //初始化孩子元素
   t->pointer_as_child_thread = palloc_get_page (PAL_ZERO);
   t->pointer_as_child_thread->tid=tid;
-  t->pointer_as_child_thread->exit_status=NULL;
+  t->pointer_as_child_thread->exit_status=UINT32_MAX;
   t->pointer_as_child_thread->bewaited = false;
   sema_init(&t->pointer_as_child_thread->sema,0);
+  list_push_back (&thread_current()->childs, &t->pointer_as_child_thread->child_thread_elem);
 
 
   /* Stack frame for kernel_thread(). */
@@ -305,14 +306,15 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  list_remove (&thread_current()->allelem);
-  thread_current ()->status = THREAD_DYING;
 
+  //打印退出的话
+  printf("%s: exit(%d)\n",thread_name(),thread_current()->exit_status);
   //信号量加上
   thread_current()->pointer_as_child_thread->exit_status=thread_current()->exit_status;
   sema_up(&thread_current()->pointer_as_child_thread->sema);
 
-  printf("%s: exit(%d)\n",thread_name(),thread_current()->exit_status);
+  list_remove (&thread_current()->allelem);
+  thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
 }
@@ -489,13 +491,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->files);
   sema_init(&t->exec_sema,0);
   t->exec_success=true;
-  t->exit_status =NULL;
+  t->exit_status =UINT32_MAX;
   list_init(&t->files);
-  if(!strcmp(name,"main")) t->parent=NULL;
-  else {
-    t->parent = thread_current();
-    list_push_back (&thread_current()->childs, &t->pointer_as_child_thread->child_thread_elem);
-  }
+  if(t==initial_thread) t->parent=NULL;
+  else t->parent = thread_current();
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -571,6 +570,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
+      // Todo: 释放资源
       palloc_free_page (prev);
     }
 }

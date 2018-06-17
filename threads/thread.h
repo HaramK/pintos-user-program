@@ -35,6 +35,13 @@ struct as_child_thread{
     struct semaphore sema;
 };
 
+//被某个线程打开的文件
+struct opened_file{
+    int fd;
+    struct file* file;
+    struct list_elem file_elem;
+};
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -119,6 +126,8 @@ struct thread
     struct list childs; //子进程
     int exit_status; //退出状态
     struct list files;//打开的文件
+    struct file * self_file; //自己这个可执行文件
+    int next_fd; //可使用的文件描述符
     struct as_child_thread * pointer_as_child_thread; //指向“作为孩子的struct”的指针
 
   };
@@ -160,5 +169,9 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void acquire_file_lock(void);
+void release_file_lock(void);
+
 
 #endif /* threads/thread.h */

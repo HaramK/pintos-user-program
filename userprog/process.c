@@ -86,8 +86,12 @@ start_process (void *file_name_)
   char *token, *save_ptr;
   file_name = strtok_r (file_name, " ", &save_ptr);
   success = load (file_name, &if_.eip, &if_.esp);
+  palloc_free_page (file_name);
 
   if(success){
+    //成功load后，不可对该可执行文件更改
+//    file_deny_write(thread_current()->self_file);
+
     /*成功load之后，把参数放入栈中*/
     //读参数个数
     int argc=0;
@@ -125,18 +129,17 @@ start_process (void *file_name_)
     memcpy(if_.esp,&argc,sizeof(int));
     if_.esp-=4;
     memcpy(if_.esp,&zero,sizeof(int));
+
+    //load之后增加信号量，并且声明成功与否
+    thread_current()->parent->exec_success=true;
+    sema_up(&thread_current()->parent->exec_sema);
   }
 
   /* If load failed, quit. */
-  //load之后增加信号量，并且声明成功与否
-  palloc_free_page (file_name);
-  if (!success){
+  else{
     thread_current()->parent->exec_success=false;
     sema_up(&thread_current()->parent->exec_sema);
     thread_exit ();
-  } else{
-    thread_current()->parent->exec_success=true;
-    sema_up(&thread_current()->parent->exec_sema);
   }
 
 
@@ -321,12 +324,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  acquire_file_lock();
   file = filesys_open (file_name);
+  release_file_lock();
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
       goto done;
     }
+
+  //打开可执行文件成功后，不可写该可执行文件。
+//  file_deny_write(file);
+  t-> self_file = file;
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -412,7 +421,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
+  acquire_file_lock();
   file_close (file);
+  release_file_lock();
   return success;
 }
 

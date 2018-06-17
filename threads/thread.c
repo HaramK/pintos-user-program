@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include <filesys/file.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -36,6 +37,9 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+//用于文件操作的全局锁
+static struct lock file_lock;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -90,6 +94,7 @@ thread_init (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
+  lock_init(&file_lock);
   list_init (&ready_list);
   list_init (&all_list);
 
@@ -302,17 +307,33 @@ thread_exit (void)
   process_exit ();
 #endif
 
-  /* Remove thread from all threads list, set our status to dying,
-     and schedule another process.  That process will destroy us
-     when it calls thread_schedule_tail(). */
   intr_disable ();
 
   //打印退出的话
   printf("%s: exit(%d)\n",thread_name(),thread_current()->exit_status);
+
   //信号量加上
   thread_current()->pointer_as_child_thread->exit_status=thread_current()->exit_status;
   sema_up(&thread_current()->pointer_as_child_thread->sema);
 
+  //可以对该可执行文件进行修改
+//  if (thread_current()->self_file != NULL) {
+//    file_allow_write(thread_current()->self_file);
+//  }
+
+  //关闭所有打开的文件
+//  struct list_elem *e;
+//  struct list *files = &thread_current()->files;
+//  for (e = list_begin (files); e != list_end (files); e = list_next (e)){
+//    acquire_file_lock();
+//    file_close(list_entry (e, struct opened_file, file_elem)->file);
+//    release_file_lock();
+//  }
+
+
+  /* Remove thread from all threads list, set our status to dying,
+     and schedule another process.  That process will destroy us
+     when it calls thread_schedule_tail(). */
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -493,6 +514,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exec_success=true;
   t->exit_status =UINT32_MAX;
   list_init(&t->files);
+  t->self_file = NULL;
+  t->next_fd = 2;
   if(t==initial_thread) t->parent=NULL;
   else t->parent = thread_current();
 
@@ -570,7 +593,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      // Todo: 释放资源
+      // Todo: 释放资源：孩子list、files的list
       palloc_free_page (prev);
     }
 }
@@ -611,7 +634,15 @@ allocate_tid (void)
 
   return tid;
 }
-
+
+void acquire_file_lock(){
+  lock_acquire(&file_lock);
+}
+
+void release_file_lock(){
+  lock_release(&file_lock);
+}
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);

@@ -15,7 +15,6 @@
 #include "pagedir.h"
 
 static void syscall_handler (struct intr_frame *);
-static void unexpected_exit(void);
 static void verity_address_multiple(int * p, int num);
 static void verity_address(void * p);
 struct opened_file * search_file(int fd);
@@ -40,6 +39,7 @@ void verity_address_multiple(int *p, int num){
 void verity_address(void *p){
   if (p==NULL) unexpected_exit();
   if(!is_user_vaddr(p)) unexpected_exit();
+  if(!is_user_vaddr(p+4)) unexpected_exit();
   if(!pagedir_get_page(thread_current()->pagedir,p)) unexpected_exit();
 
 }

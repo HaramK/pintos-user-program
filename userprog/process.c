@@ -89,8 +89,6 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
 
   if(success){
-    //成功load后，不可对该可执行文件更改
-//    file_deny_write(thread_current()->self_file);
 
     /*成功load之后，把参数放入栈中*/
     //读参数个数
@@ -326,7 +324,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Open executable file. */
   acquire_file_lock();
   file = filesys_open (file_name);
-  release_file_lock();
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
@@ -334,7 +331,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   //打开可执行文件成功后，不可写该可执行文件。
-//  file_deny_write(file);
+  file_deny_write(file);
   t-> self_file = file;
 
   /* Read and verify executable header. */
@@ -421,8 +418,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  acquire_file_lock();
-  file_close (file);
+//  file_close (file);
   release_file_lock();
   return success;
 }

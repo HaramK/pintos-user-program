@@ -316,20 +316,17 @@ thread_exit (void)
   thread_current()->pointer_as_child_thread->exit_status=thread_current()->exit_status;
   sema_up(&thread_current()->pointer_as_child_thread->sema);
 
-  //可以对该可执行文件进行修改
-//  if (thread_current()->self_file != NULL) {
-//    file_allow_write(thread_current()->self_file);
-//  }
+  //关闭可执行文件，间接允许了对该可执行文件进行修改
+  file_close(thread_current()->self_file);
 
-  //关闭所有打开的文件
-//  struct list_elem *e;
-//  struct list *files = &thread_current()->files;
-//  for (e = list_begin (files); e != list_end (files); e = list_next (e)){
-//    acquire_file_lock();
-//    file_close(list_entry (e, struct opened_file, file_elem)->file);
-//    release_file_lock();
-//  }
-
+ // 关闭所有打开的文件
+  struct list_elem *e;
+  struct list *files = &thread_current()->files;
+  for (e = list_begin (files); e != list_end (files); e = list_next (e)){
+    acquire_file_lock();
+    file_close(list_entry (e, struct opened_file, file_elem)->file);
+    release_file_lock();
+  }
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us

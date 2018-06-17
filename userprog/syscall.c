@@ -7,6 +7,7 @@
 #include <string.h>
 #include <filesys/file.h>
 #include <devices/input.h>
+#include <threads/palloc.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "process.h"
@@ -16,7 +17,7 @@ static void syscall_handler (struct intr_frame *);
 static void unexpected_exit(void);
 static void verity_address_multiple(int * p, int num);
 static void verity_address(void * p);
-struct file * search_file(int fd);
+struct opened_file * search_file(int fd);
 
 void
 syscall_init (void)
@@ -42,14 +43,14 @@ void verity_address(void *p){
 
 }
 
-struct file * search_file(int fd){
+struct opened_file * search_file(int fd){
   struct list_elem *e;
   struct opened_file * opf =NULL;
   struct list *files = &thread_current()->files;
   for (e = list_begin (files); e != list_end (files); e = list_next (e)){
     opf = list_entry (e, struct opened_file, file_elem);
     if (fd==opf->fd)
-      return opf->file;
+      return opf;
   }
   return false;
 }
@@ -106,21 +107,21 @@ syscall_handler (struct intr_frame *f UNUSED)
       struct file * thefile =filesys_open((const char *)*p);
       release_file_lock();
       if(thefile){
-        struct opened_file of;
-        of.fd = t->next_fd++;
-        of.file = thefile;
-        list_push_back(&t->files, &of.file_elem);
-        f->eax = of.fd;
+        struct opened_file *of = palloc_get_page(PAL_ZERO);
+        of->fd = t->next_fd++;
+        of->file = thefile;
+        list_push_back(&t->files, &of->file_elem);
+        f->eax = of->fd;
       } else
         f->eax = -1;
       break;
 
     case SYS_FILESIZE:
       verity_address((void *)p);
-      struct file * thefile2 = search_file(*p);
+      struct opened_file * thefile2 = search_file(*p);
       if (thefile2){
         acquire_file_lock();
-        f->eax = file_length(thefile2);
+        f->eax = file_length(thefile2->file);
         release_file_lock();
       } else
         f->eax = -1;
@@ -132,17 +133,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       int fd = *p;
       uint8_t * buffer = (uint8_t*)*(p+1);
       off_t size = *(p+2);
-//      if (fd<0||fd==1) unexpected_exit();
       if (fd==0) {
         for (int i=0; i<size; i++)
           buffer[i] = input_getc();
         f->eax = size;
       }
       else{
-        struct file * thefile3 = search_file(*p);
+        struct opened_file * thefile3 = search_file(*p);
         if (thefile3){
           acquire_file_lock();
-          f->eax = file_read(thefile3, buffer, size);
+          f->eax = file_read(thefile3->file, buffer, size);
           release_file_lock();
         } else
           f->eax = -1;
@@ -155,16 +155,15 @@ syscall_handler (struct intr_frame *f UNUSED)
       int fd2 = *p;
       const char * buffer2 = (const char *)*(p+1);
       off_t size2 = *(p+2);;
-//      if (fd<=0) unexpected_exit();
       if (fd2==1) {
         putbuf(buffer2,size2);
         f->eax = size2;
       }
       else{
-        struct file * thefile4 = search_file(*p);
+        struct opened_file * thefile4 = search_file(*p);
         if (thefile4){
           acquire_file_lock();
-          f->eax = file_write(thefile4, buffer2, size2);
+          f->eax = file_write(thefile4->file, buffer2, size2);
           release_file_lock();
         } else
           f->eax = 0;
@@ -173,20 +172,20 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_SEEK:
       verity_address_multiple(p, 2);
-      struct file * thefile5 = search_file(*p);
+      struct opened_file * thefile5 = search_file(*p);
       if (thefile5){
         acquire_file_lock();
-        file_seek(thefile5, *(p+1));
+        file_seek(thefile5->file, *(p+1));
         release_file_lock();
       }
       break;
 
     case SYS_TELL:
       verity_address((void *)p);
-      struct file * thefile6 = search_file(*p);
+      struct opened_file * thefile6 = search_file(*p);
       if (thefile6){
         acquire_file_lock();
-        f->eax = file_tell(thefile6);
+        f->eax = file_tell(thefile6->file);
         release_file_lock();
       }else
         f->eax = -1;
@@ -194,11 +193,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_CLOSE:
       verity_address((void *)p);
-      struct file * thefile7 = search_file(*p);
-      if (thefile7){
+      struct opened_file * openf=search_file(*p);
+      if (openf){
         acquire_file_lock();
-        file_close(thefile7);
+        file_close(openf->file);
         release_file_lock();
+        list_remove(&openf->file_elem);
+        palloc_free_page(openf);
       }
       break;
 

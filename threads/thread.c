@@ -13,8 +13,6 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-
-
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -325,10 +323,16 @@ thread_exit (void)
  // 关闭所有打开的文件
   struct list_elem *e;
   struct list *files = &thread_current()->files;
-  for (e = list_begin (files); e != list_end (files); e = list_next (e)){
+  while(!list_empty(files))
+  {
+    e = list_pop_front(files);
+    struct opened_file *f = list_entry (e, struct opened_file, file_elem);
     acquire_file_lock();
-    file_close(list_entry (e, struct opened_file, file_elem)->file);
+    file_close(f->file);
     release_file_lock();
+    list_remove(e);
+    free(f);
+
   }
 
   /* Remove thread from all threads list, set our status to dying,
@@ -594,7 +598,7 @@ thread_schedule_tail (struct thread *prev)
     {
       ASSERT (prev != cur);
 
-      //  释放资源：孩子list、files的list
+       // 释放资源：孩子list、files的list
       while(!list_empty(&prev->childs)){
         struct as_child_thread *act = list_entry (list_pop_front(&prev->childs), struct as_child_thread, child_thread_elem);
         free(act);

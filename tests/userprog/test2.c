@@ -11,7 +11,7 @@
 void
 test_main (void)
 {
-  asm volatile ("movl $0xbfffffff, %%esp; movl %0, (%%esp); int $0x30"
+  asm volatile ("movl $0xbffffffa, %%esp; movl %0, (%%esp); int $0x30"
   : : "i" (SYS_EXIT));
   fail ("should have called exit(-1)");
 }

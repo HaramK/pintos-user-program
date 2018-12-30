@@ -1,8 +1,6 @@
 # pintos-user-program
 ## Overview
-This project is to finish three tasks in the user program realization part of pintos. To finish these task, firstly, I read the related resources about pintos and try my best to understand the code. And then, modify the code according to the task requirements.
-
-This project aims to implement the necessary features for user programs (the test programs) to request kernel functionality. We need to finish three tests: argument passing, process control syscalls, file operation syscalls.
+This project is to finish three tasks in the user program realization part of pintos. To finish these task, firstly, I read the related resources about pintos and try my best to understand the code. And then, modify the code according to the task requirements. This project aims to implement the necessary features for user programs (the test programs) to request kernel functionality. We need to finish three tests: argument passing, process control syscalls, file operation syscalls.
 
 ## Methodology
 ### Task1 - Argument Passing
@@ -51,3 +49,5 @@ In addition to the process control syscalls, you will also need to implement the
 - For read system call, Firstly, if the file descriptor is STDIN_FILENO, the function will store input to the buffer and then put them to the console. If the file descriptor is larger than or equal to 2, then we traverse current thread’s file list and call file_read() to read several size of contents.
 - For READ sysyem call. Firstly, if the file descriptor is STDOUT_FILENO, the function will put content in buffer to the console. If the file descriptor is larger than or equal to 2, then we traverse current thread’s file list and call file_write() to write several size of contents to the file.
 - And don not forget to close the file, and then release the resoueces.
+
+## Experiment Verification

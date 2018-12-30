@@ -50,4 +50,7 @@ In addition to the process control syscalls, you will also need to implement the
 - For READ sysyem call. Firstly, if the file descriptor is STDOUT_FILENO, the function will put content in buffer to the console. If the file descriptor is larger than or equal to 2, then we traverse current thread’s file list and call file_write() to write several size of contents to the file.
 - And don not forget to close the file, and then release the resoueces.
 
+
 ## Experiment Verification
+<img src="https://github.com/lengyyy/pintos-user-program/blob/master/experiment/Screen%20Shot%202018-12-31%20at%2012.53.16%20AM.png" width="450">
+
